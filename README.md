@@ -5,3 +5,5 @@ This project examines salary and overtime pay for all New York City (NYC) munici
 With a yearly budget of nearly $100 billion, NYC expenditures should provide a vivid picture of what large metropolises prioritize and how funds are allocated. The Citywide Payroll Data (Fiscal Year) dataset includes fiscal years 2020 and 2021--a period hallmarked by some of the largest nationwide demonstrations of civil unrest. Analyzing the data could reveal what, if any, impact this had on overtime time pay for city employees. 
 
 The dataset is tabular and each row represents a single city employee salary for the fiscal year. The columns include the following employee information: their name, the payroll agency they work for, civil service title, borough of employment, base salary, regular hours, total OT paid, OT hours, and regular gross pay for the fiscal year.
+
+###Please note: The csv for waste tonnage is not the file used in this project. The project's dataset was too large to upload to github.
