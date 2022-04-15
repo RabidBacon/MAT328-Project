@@ -1,0 +1,195 @@
+#code for milestone 2 begins on line 100
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import statsmodels.formula.api as smf
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
+from sklearn.preprocessing import PolynomialFeatures
+
+from sklearn.model_selection import train_test_split
+
+
+%matplotlib inline
+pd.set_option('display.max_columns', None)
+
+pd.options.display.precision = 6
+
+payroll = pd.read_csv("Citywide_Payroll_Data_Fiscal_Year_2020-2021.csv")
+
+column_list = pd.Series(payroll.columns)
+
+new_columns = []
+for i in column_list:
+    new_columns.append(str(i).replace(" ", "_"))
+
+payroll.columns = new_columns
+
+payroll.shape
+
+payroll_clean = payroll.drop_duplicates()
+
+payroll.shape[0] - payroll_clean.shape[0]
+
+payroll_clean.shape
+
+payroll_clean.dropna(subset=['Agency_Start_Date'], inplace=True)
+
+payroll_clean.shape[0]
+
+payroll_clean.dtypes
+
+to_lose = payroll_clean['Agency_Start_Date'].sort_values(ascending=False).head(65).index
+
+payroll_clean = payroll_clean.drop(labels=to_lose)
+
+payroll_clean['Agency_Start_Date'].sort_values(ascending=False).head(5)
+
+payroll_clean.dtypes
+
+payroll_clean['Agency_Name'].unique()
+
+filter_police = payroll_clean['Agency_Name'] == 'POLICE DEPARTMENT'
+filter_fire = payroll_clean['Agency_Name'] == 'FIRE DEPARTMENT'
+filter_sanitation = payroll_clean['Agency_Name'] == 'DEPARTMENT OF SANITATION'
+
+filter_2020 = payroll_clean['Fiscal_Year'] == 2020
+filter_2021 = payroll_clean['Fiscal_Year'] == 2021
+
+payroll_working = payroll_clean[(filter_fire|filter_police|filter_sanitation)]
+
+filter_regular = payroll_working['Regular_Hours'] > 0
+filter_paid = payroll_working['Regular_Gross_Paid'] > 0
+filter_ot_hours = payroll_working['OT_Hours'] >= 0
+
+payroll_working = payroll_working[filter_regular&filter_paid&filter_ot_hours]
+
+payroll_working.shape
+
+payroll_working['Leave_Status_as_of_June_30'].value_counts()
+
+payroll_working[payroll_working['Base_Salary']<=10000]
+
+#Base Salary should be computed seperately for the different types: hourly, daily, yearly
+payroll_working['Base_Salary'].hist(bins=10)
+plt.title('Histogram - Base Salary of City Employee')
+plt.xlabel('Base Salary')
+plt.ylabel('Frequency')
+plt.savefig('ProjectFigure-Histogram-BaseSalary.png', dpi=96, transparent=True)
+
+payroll_working['Regular_Hours'].hist()
+plt.title('Histogram - Regular Hours Worked by City Employee in Fiscal Year')
+plt.xlabel('Regular Hours')
+plt.ylabel('Frequency')
+plt.savefig('ProjectFigure-Histogram-RegularHours.png', dpi=96, transparent=True)
+
+payroll_working['OT_Hours'].hist(bins=30)
+plt.title('Histogram - Overtime Hours Worked in Fiscal Year')
+plt.xlabel('OT Hours')
+plt.ylabel('Frequency')
+plt.savefig('ProjectFigure-Histogram-OTHours.png', dpi=96, transparent=True)
+
+sns.catplot(x='Work_Location_Borough', y='OT_Hours',kind='box' , data=payroll_working)
+plt.title('Boxplot - Distribution of Overtime Hours by Borough of Work')
+plt.xlabel('Work Location Borough')
+plt.ylabel('OT Hours per Fiscal Year')
+plt.savefig('ProjectFigure-Boxplot-OThbyBorough.png', dpi=96, transparent=True)
+
+payroll_working[payroll_working['OT_Hours']>0]['OT_Hours'].hist()
+
+payroll_working[payroll_working['OT_Hours']<0]['OT_Hours'].hist()
+
+pd.get_dummies(payroll_working, columns=['Fiscal_Year','Agency_Name','Work_Location_Borough','Leave_Status_as_of_June_30','Pay_Basis'])
+
+payroll_quant = pd.get_dummies(payroll_working, columns=['Fiscal_Year','Agency_Name','Work_Location_Borough','Leave_Status_as_of_June_30','Pay_Basis'])
+
+payroll_models
+
+#Setup for a linear regression model with scikit learn, the predicted column is to be the 'OT_Hours' column.
+
+x = payroll_models.drop(
+    columns=[
+        'Payroll_Number',
+        'Last_Name',
+        'First_Name',
+        'Mid_Init',
+        'Agency_Start_Date',
+        'Title_Description',
+        'OT_Hours']
+    )
+y = payroll_models['OT_Hours']
+
+x_train,x_test,y_train,y_test = train_test_split(x,y, test_size=0.20)
+
+linear_model = LinearRegression()
+linear_model.fit(x_train,y_train)
+
+y_linear1_predict = linear_model.predict(x_test)
+
+x_test.columns
+
+plt.scatter(x_test['Regular_Gross_Paid'], y_linear1_predict )
+plt.scatter(x_test['Regular_Gross_Paid'], y_test)
+
+mse_linear_model1 = mean_squared_error(y_test, y_linear1_predict)
+
+mse_linear_model1
+
+#Linear model trained with the omission of borough data
+x2 = x = payroll_models.drop(
+    columns=[
+        'Payroll_Number',
+        'Last_Name',
+        'First_Name',
+        'Mid_Init',
+        'Agency_Start_Date',
+        'Title_Description',
+        'OT_Hours',
+        'Work_Location_Borough_BRONX',
+        'Work_Location_Borough_BROOKLYN',
+        'Work_Location_Borough_MANHATTAN',
+        'Work_Location_Borough_QUEENS',
+        'Work_Location_Borough_RICHMOND']
+    )
+y2 = payroll_models['OT_Hours']
+
+x_train,x_test,y_train,y_test = train_test_split(x2,y2)
+
+linear_model_minus_Bo = LinearRegression()
+linear_model_minus_Bo.fit(x_train,y_train)
+
+y_linear2_predict = linear_model_minus_Bo.predict(x_test)
+
+mse_linear_model2 = mean_squared_error(y_test,y_linear2_predict)
+mse_linear_model2
+
+#Linear model with omission of non-active leave status
+#Linear model trained with the omission of borough data
+x3 = x = payroll_models.drop(
+    columns=[
+        'Payroll_Number',
+        'Last_Name',
+        'First_Name',
+        'Mid_Init',
+        'Agency_Start_Date',
+        'Title_Description',
+        'OT_Hours',
+        'Leave_Status_as_of_June_30_CEASED',
+        'Leave_Status_as_of_June_30_ON LEAVE',
+        'Leave_Status_as_of_June_30_ON SEPARATION LEAVE']
+    )
+y3 = payroll_models['OT_Hours']
+
+x_train,x_test,y_train,y_test = train_test_split(x3,y3)
+
+linear_model_minus_nonActive = LinearRegression()
+linear_model_minus_nonActive.fit(x_train,y_train)
+
+y_linear3_predict = linear_model_minus_nonActive.predict(x_test)
+
+mse_linear_model3 = mean_squared_error(y_test, y_linear3_predict)
+mse_linear_model3
