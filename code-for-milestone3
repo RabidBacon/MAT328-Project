@@ -191,6 +191,21 @@ for k in range(2,12):
     clusters = kmeans.predict(x_scaled)
     inertia_list.append(kmeans.inertia_)
 
+plt.figure(dpi=96)
 plt.plot(range(2,12), inertia_list, 'ro-')
 plt.xlabel('k')
-plt.ylabel('inertia')
+plt.ylabel('Inertia')
+plt.title('Elbow Method - Finding Optimal k Value')
+
+kmeans_3 = KMeans(n_clusters=3)
+kmeans_3.fit(x_scaled)
+
+clusters = kmeans_3.predict(x_scaled)
+clusters
+
+payroll_working_kmeans['clusters'] = clusters
+
+sns.pairplot(payroll_working_kmeans, hue='clusters', vars=num_columns)
+
+plt.savefig('ProjectFigure-Pairplot-KMeans-3.png', dpi=96, transparent=True, bbox_inches='tight')
+plt.show()
