@@ -1,0 +1,196 @@
+#code for Milestone 3 begins on line 73
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import statsmodels.formula.api as smf
+
+from sklearn.preprocessing import MinMaxScaler
+
+from sklearn.cluster import KMeans
+
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import silhouette_score
+
+
+%matplotlib inline
+pd.set_option('display.max_columns', None)
+
+pd.options.display.precision = 6
+
+payroll = pd.read_csv("Citywide_Payroll_Data_Fiscal_Year_2020-2021.csv")
+
+column_list = pd.Series(payroll.columns)
+
+new_columns = []
+for i in column_list:
+    new_columns.append(str(i).replace(" ", "_"))
+
+payroll.columns = new_columns
+
+payroll.shape
+
+payroll_clean = payroll.drop_duplicates()
+
+payroll.shape[0] - payroll_clean.shape[0]
+
+payroll_clean.shape
+
+payroll_clean.dropna(subset=['Agency_Start_Date'], inplace=True)
+
+payroll_clean.shape[0]
+
+payroll_clean.dtypes
+
+to_lose = payroll_clean['Agency_Start_Date'].sort_values(ascending=False).head(65).index
+
+payroll_clean = payroll_clean.drop(labels=to_lose)
+
+payroll_clean['Agency_Start_Date'].sort_values(ascending=False).head(5)
+
+payroll_clean.dtypes
+
+payroll_clean['Agency_Name'].unique()
+
+filter_police = payroll_clean['Agency_Name'] == 'POLICE DEPARTMENT'
+filter_fire = payroll_clean['Agency_Name'] == 'FIRE DEPARTMENT'
+filter_sanitation = payroll_clean['Agency_Name'] == 'DEPARTMENT OF SANITATION'
+
+filter_2020 = payroll_clean['Fiscal_Year'] == 2020
+filter_2021 = payroll_clean['Fiscal_Year'] == 2021
+
+payroll_working = payroll_clean[(filter_fire|filter_police|filter_sanitation)]
+
+filter_regular = payroll_working['Regular_Hours'] > 0
+filter_paid = payroll_working['Regular_Gross_Paid'] > 0
+filter_ot_hours = payroll_working['OT_Hours'] >= 0
+
+payroll_working = payroll_working[filter_regular&filter_paid&filter_ot_hours]
+
+payroll_working.shape
+
+# Milestone_3 Code begins
+payroll_working.info()
+
+payroll_working.reset_index(drop=True, inplace=True)
+
+payroll_working.columns
+
+name_colums = payroll_working.columns[3:6]
+
+payroll_working.drop(columns=name_colums, inplace=True)
+
+payroll_working['Fiscal_Year'].value_counts()
+
+#Setting up historgrams by subsets of data. In particular, I want to see 'OT_Hours' by 'Agency_name' for each of our 'Fiscal_Year's 
+
+payroll_working.head(5)
+
+#Filtering out retired city employees
+
+filter_retired = payroll_working['Leave_Status_as_of_June_30']=='CEASED'
+
+payroll_working = payroll_working[~filter_retired]
+
+payroll_working.shape
+
+payroll_working_byAgency = payroll_working.set_index('Agency_Name')
+
+#Filtering 2020 and 2021
+
+payroll_working_byAgency_2020 = payroll_working_byAgency[payroll_working_byAgency['Fiscal_Year']==2020]
+payroll_working_byAgency_2021 = payroll_working_byAgency[payroll_working_byAgency['Fiscal_Year']==2021]
+
+payroll_working_byAgency_2020.head(3)
+
+fig, (ax1,ax2,ax3) = plt.subplots(1,3, figsize=(13,3.5), sharex=True, sharey=True, dpi=96)
+ax_range = [0,2500]
+
+ax1.hist(payroll_working_byAgency_2020.loc['POLICE DEPARTMENT']['OT_Hours'], bins=20, color='steelblue',range=ax_range)
+ax1.hist(payroll_working_byAgency_2021.loc['POLICE DEPARTMENT']['OT_Hours'], bins=20, color='darkorange', alpha=.7, range=ax_range)
+ax1.set_title('Histogram - OT Hours \nPolice Department')
+ax1.set(ylabel='# of City Employees')
+#ax1.axvline(x=payroll_working_byAgency_2020['OT_Hours'].median(), ls='dotted')
+#ax1.axvline(x=payroll_working_byAgency_2021['OT_Hours'].median(), color='orange', ls='dotted' )
+
+ax2.hist(payroll_working_byAgency_2020.loc['FIRE DEPARTMENT']['OT_Hours'], bins=20, color='steelblue', range=ax_range)
+ax2.hist(payroll_working_byAgency_2021.loc['FIRE DEPARTMENT']['OT_Hours'], bins=20, color='darkorange', alpha=.7, range=ax_range)
+ax2.set_title('Histogram - OT Hours \nFire Department')
+ax2.set(xlabel='OT Hours')
+
+ax3.hist(payroll_working_byAgency_2020.loc['DEPARTMENT OF SANITATION']['OT_Hours'], bins=20, color='steelblue', range=ax_range)
+ax3.hist(payroll_working_byAgency_2021.loc['DEPARTMENT OF SANITATION']['OT_Hours'], bins=20, color='darkorange', alpha=.7, range=ax_range)
+ax3.set_title('Histogram - OT Hours \nDepartment of Sanitation')
+ax3.legend(['2020','2021'])
+
+plt.savefig('ProjectFigure-Histogram-OT-ByAgency.png', dpi=96, transparent=True, bbox_inches='tight')
+plt.show()
+
+sns.catplot(x='Agency_Name', y='OT_Hours', hue='Fiscal_Year',
+            data=payroll_working, kind='bar', ci=None,
+            sharex=True, sharey=True,
+            height=6, aspect=1.3)
+plt.title('Bar Chart of OT Hours by Agency Name')
+
+plt.savefig('ProjectFigure-BarChart-OT-ByAgency.png', dpi=96, transparent=True, bbox_inches='tight')
+plt.show()
+
+sum_payroll_working = payroll_working.groupby(by=['Fiscal_Year','Agency_Name']).sum()
+
+#Total OT Paid, in millions
+sum_payroll_working['Total_OT_Paid']/1000000
+
+police_OTpaid_2020 = sum_payroll_working.loc[2020,'POLICE DEPARTMENT']['Total_OT_Paid']
+police_OTpaid_2021 = sum_payroll_working.loc[2021,'POLICE DEPARTMENT']['Total_OT_Paid']
+
+(police_OTpaid_2020 - police_OTpaid_2021)/1000000
+
+fire_OTpaid_2020 = sum_payroll_working.loc[2020,'FIRE DEPARTMENT']['Total_OT_Paid']
+fire_OTpaid_2021 = sum_payroll_working.loc[2021,'FIRE DEPARTMENT']['Total_OT_Paid']
+
+(fire_OTpaid_2020 - fire_OTpaid_2021)/1000000
+
+sanitation_OTpaid_2020 = sum_payroll_working.loc[2020,'DEPARTMENT OF SANITATION']['Total_OT_Paid']
+sanitation_OTpaid_2021 = sum_payroll_working.loc[2021,'DEPARTMENT OF SANITATION']['Total_OT_Paid']
+
+(sanitation_OTpaid_2020 - sanitation_OTpaid_2021)/1000000
+
+#Beginning of final analysis. 
+
+#sns.pairplot(payroll_working, hue='Agency_Name')
+
+#Reduced dataset length to save computing time
+filter_2021_working = payroll_working['Fiscal_Year']==2021
+filter_activeOnly   = payroll_working['Leave_Status_as_of_June_30']=='ACTIVE'
+
+payroll_working_kmeans = payroll_working[filter_2021_working&filter_activeOnly]
+
+payroll_working_kmeans
+
+x = payroll_working_kmeans[['Base_Salary','Regular_Hours','Regular_Gross_Paid','OT_Hours','Total_OT_Paid','Total_Other_Pay']]
+
+x.info()
+
+sns.pairplot(payroll_working_kmeans, hue='Agency_Name')
+
+x = payroll_working_kmeans[['Base_Salary','Regular_Hours','Regular_Gross_Paid','OT_Hours','Total_OT_Paid','Total_Other_Pay']]
+
+x.info()
+
+scaler = MinMaxScaler()
+x_scaled = scaler.fit_transform(x)
+
+inertia_list = []
+count = 0
+for k in range(2,12):
+    count += 1
+    print('Running iteration number:', count)
+    kmeans = KMeans(n_clusters=k)
+    kmeans.fit(x_scaled)
+    clusters = kmeans.predict(x_scaled)
+    inertia_list.append(kmeans.inertia_)
+
+plt.plot(range(2,12), inertia_list, 'ro-')
+plt.xlabel('k')
+plt.ylabel('inertia')
